@@ -12,9 +12,9 @@ packages and launched via `npx`.
 ```
 packages/
   http/        # HTTP MCP server
+  search-serper/ # Serper search MCP server
 ```
 
 ## Publishing
 Each package under `packages/*` is an npm workspace package and can be published
 independently. Use a scoped name if you want to own the namespace.
-
