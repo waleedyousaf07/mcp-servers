@@ -89,7 +89,12 @@ export async function openBrowser(url: string): Promise<boolean> {
             "-ExecutionPolicy",
             "Bypass",
             "-Command",
-            `Start-Process ${powershellUrl}`
+            [
+              "$psi = New-Object System.Diagnostics.ProcessStartInfo;",
+              `$psi.FileName = ${powershellUrl};`,
+              "$psi.UseShellExecute = $true;",
+              "[System.Diagnostics.Process]::Start($psi) | Out-Null"
+            ].join(" ")
           ]
         }
       : platform === "darwin"
@@ -99,14 +104,16 @@ export async function openBrowser(url: string): Promise<boolean> {
   try {
     await new Promise<void>((resolve, reject) => {
       const child = spawn(command.cmd, command.args, {
-        detached: true,
         stdio: "ignore"
       });
 
       child.once("error", reject);
-      child.once("spawn", () => {
-        child.unref();
-        resolve();
+      child.once("exit", (code) => {
+        if (code === 0 || code === null) {
+          resolve();
+          return;
+        }
+        reject(new Error(`Browser opener exited with code ${code}`));
       });
     });
 
