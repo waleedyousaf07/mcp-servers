@@ -1,6 +1,6 @@
 {
   "name": "@waleedyousaf07/mcp-gmail",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Thin Gmail MCP server for MCP-compatible agents.",
   "type": "module",
   "bin": {
@@ -20,7 +20,8 @@
   "scripts": {
     "build": "tsup",
     "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.17.4",
