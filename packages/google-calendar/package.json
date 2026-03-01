@@ -1,6 +1,6 @@
 {
   "name": "@waleedyousaf07/mcp-google-calendar",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Thin Google Calendar MCP server for MCP-compatible agents.",
   "type": "module",
   "bin": {

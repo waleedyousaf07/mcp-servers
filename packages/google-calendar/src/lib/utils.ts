@@ -78,9 +78,20 @@ export function encodeQuery(params: Record<string, string | number | boolean | u
 
 export async function openBrowser(url: string): Promise<boolean> {
   const platform = process.platform;
+  const powershellUrl = `'${url.replace(/'/g, "''")}'`;
   const command =
     platform === "win32"
-      ? { cmd: "explorer.exe", args: [url], windowsVerbatimArguments: true }
+      ? {
+          cmd: "powershell.exe",
+          args: [
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            `Start-Process ${powershellUrl}`
+          ]
+        }
       : platform === "darwin"
         ? { cmd: "open", args: [url] }
         : { cmd: "xdg-open", args: [url] };
@@ -89,8 +100,7 @@ export async function openBrowser(url: string): Promise<boolean> {
     await new Promise<void>((resolve, reject) => {
       const child = spawn(command.cmd, command.args, {
         detached: true,
-        stdio: "ignore",
-        windowsVerbatimArguments: command.windowsVerbatimArguments
+        stdio: "ignore"
       });
 
       child.once("error", reject);
