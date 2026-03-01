@@ -86,14 +86,14 @@ If `MCP_GMAIL_USE_KEYTAR=true` but `keytar` is unavailable, the server falls bac
 
 ## Client Config Examples
 
-Any MCP client that can launch a stdio server can use this package. For example, a generic stdio config entry can look like:
+Any MCP client that can launch a stdio server can use this package. Use `npx` as the default command so the config stays portable across macOS, Linux, and Windows:
 
 ```json
 {
   "id": "gmail",
   "transport": "stdio",
   "command": [
-    "C:\\nvm4w\\nodejs\\npx.cmd",
+    "npx",
     "--yes",
     "@waleedyousaf07/mcp-gmail@latest"
   ],
@@ -101,9 +101,11 @@ Any MCP client that can launch a stdio server can use this package. For example,
 }
 ```
 
+If your MCP client supports OS-specific overrides, only add a Windows-specific `npx.cmd` path there. Keep the default config on plain `npx`.
+
 ## Troubleshooting
 
-- Browser did not open: the server prints the Google auth URL to `stderr`. Open it manually in a browser on the same machine.
+- Browser did not open: the server prints the Google auth URL to `stderr`. Open it manually in a browser on the same machine. This is expected on headless Linux or any machine without a desktop opener.
 - `invalid_grant`: your stored refresh token is no longer valid. Delete the saved token from your user config directory and authorize again.
 - Permission errors: confirm the Gmail API is enabled in your Google Cloud project and the OAuth client is a Desktop app.
 

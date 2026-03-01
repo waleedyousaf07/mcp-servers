@@ -1,6 +1,6 @@
 {
   "name": "@waleedyousaf07/mcp-gmail",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Thin Gmail MCP server for MCP-compatible agents.",
   "type": "module",
   "bin": {

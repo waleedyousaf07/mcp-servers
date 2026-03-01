@@ -80,7 +80,7 @@ export async function openBrowser(url: string): Promise<boolean> {
   const platform = process.platform;
   const command =
     platform === "win32"
-      ? { cmd: "cmd", args: ["/c", "start", "", url] }
+      ? { cmd: "rundll32.exe", args: ["url.dll,FileProtocolHandler", url] }
       : platform === "darwin"
         ? { cmd: "open", args: [url] }
         : { cmd: "xdg-open", args: [url] };
@@ -88,7 +88,7 @@ export async function openBrowser(url: string): Promise<boolean> {
   try {
     await new Promise<void>((resolve, reject) => {
       const child = spawn(command.cmd, command.args, {
-        detached: platform !== "win32",
+        detached: true,
         stdio: "ignore"
       });
 
