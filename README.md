@@ -13,6 +13,7 @@ packages and launched via `npx`.
 packages/
   http/        # HTTP MCP server
   gmail/       # Gmail MCP server
+  google-calendar/ # Google Calendar MCP server
   search-serper/ # Serper search MCP server
 ```
 

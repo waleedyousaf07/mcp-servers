@@ -33,6 +33,14 @@ npm version patch --workspace @waleedyousaf07/mcp-gmail
 npm publish --workspace @waleedyousaf07/mcp-gmail
 ```
 
+For the Google Calendar package, use the same commands with the Calendar workspace name:
+```
+npm publish --workspace @waleedyousaf07/mcp-google-calendar --dry-run
+npm publish --workspace @waleedyousaf07/mcp-google-calendar --access public
+npm version patch --workspace @waleedyousaf07/mcp-google-calendar
+npm publish --workspace @waleedyousaf07/mcp-google-calendar
+```
+
 ## Generate a new token and configure npm
 1) Go to npmjs.com → Access Tokens → Generate New Token (Granular).
 2) Enable `Publish` and `Bypass 2FA`.
