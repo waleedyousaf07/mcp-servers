@@ -25,6 +25,14 @@ npm publish --workspace @waleedyousaf07/mcp-http
 
 Use `minor` or `major` instead of `patch` when appropriate.
 
+For the Gmail package, use the same commands with the Gmail workspace name:
+```
+npm publish --workspace @waleedyousaf07/mcp-gmail --dry-run
+npm publish --workspace @waleedyousaf07/mcp-gmail --access public
+npm version patch --workspace @waleedyousaf07/mcp-gmail
+npm publish --workspace @waleedyousaf07/mcp-gmail
+```
+
 ## Generate a new token and configure npm
 1) Go to npmjs.com → Access Tokens → Generate New Token (Granular).
 2) Enable `Publish` and `Bypass 2FA`.
