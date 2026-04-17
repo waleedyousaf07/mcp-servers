@@ -57,6 +57,14 @@ npm version patch --workspace @waleedyousaf07/mcp-google-sheets
 npm publish --workspace @waleedyousaf07/mcp-google-sheets
 ```
 
+For the HireLoop package, use the same commands with the HireLoop workspace name:
+```
+npm publish --workspace @waleedyousaf07/mcp-hireloop --dry-run
+npm publish --workspace @waleedyousaf07/mcp-hireloop --access public
+npm version patch --workspace @waleedyousaf07/mcp-hireloop
+npm publish --workspace @waleedyousaf07/mcp-hireloop
+```
+
 ## Generate a new token and configure npm
 1) Go to npmjs.com → Access Tokens → Generate New Token (Granular).
 2) Enable `Publish` and `Bypass 2FA`.

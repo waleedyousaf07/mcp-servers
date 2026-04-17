@@ -16,6 +16,7 @@ packages/
   google-calendar/ # Google Calendar MCP server
   google-docs/ # Google Docs MCP server
   google-sheets/ # Google Sheets MCP server
+  hireloop/    # HireLoop orchestration MCP wrapper
   search-serper/ # Serper search MCP server
 ```
 
