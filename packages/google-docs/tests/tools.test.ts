@@ -1,0 +1,58 @@
+import { describe, expect, it } from "vitest";
+import {
+  batchUpdateInputSchema,
+  getDocumentInputSchema,
+  insertTextInputSchema,
+  searchDocumentsInputSchema
+} from "../src/lib/tools.js";
+
+describe("tool schemas", () => {
+  it("applies defaults for searchDocuments", () => {
+    const parsed = searchDocumentsInputSchema.parse({});
+
+    expect(parsed.maxResults).toBe(10);
+    expect(parsed.includeTrashed).toBe(false);
+  });
+
+  it("rejects search maxResults above hard max", () => {
+    expect(() =>
+      searchDocumentsInputSchema.parse({
+        maxResults: 51
+      })
+    ).toThrow(/50/);
+  });
+
+  it("requires exactly one reference field", () => {
+    expect(() =>
+      getDocumentInputSchema.parse({
+        name: "Q1 Notes",
+        path: "Clients/Q1 Notes"
+      })
+    ).toThrow(/exactly one of id, url, name, or path/i);
+
+    expect(() =>
+      getDocumentInputSchema.parse({
+        includeTabsContent: true
+      })
+    ).toThrow(/exactly one of id, url, name, or path/i);
+  });
+
+  it("requires insertText payload", () => {
+    expect(() =>
+      insertTextInputSchema.parse({
+        id: "doc-1",
+        text: "",
+        index: 1
+      })
+    ).toThrow();
+  });
+
+  it("requires at least one batch update request", () => {
+    expect(() =>
+      batchUpdateInputSchema.parse({
+        id: "doc-1",
+        requests: []
+      })
+    ).toThrow();
+  });
+});

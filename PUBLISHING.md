@@ -41,6 +41,22 @@ npm version patch --workspace @waleedyousaf07/mcp-google-calendar
 npm publish --workspace @waleedyousaf07/mcp-google-calendar
 ```
 
+For the Google Docs package, use the same commands with the Docs workspace name:
+```
+npm publish --workspace @waleedyousaf07/mcp-google-docs --dry-run
+npm publish --workspace @waleedyousaf07/mcp-google-docs --access public
+npm version patch --workspace @waleedyousaf07/mcp-google-docs
+npm publish --workspace @waleedyousaf07/mcp-google-docs
+```
+
+For the Google Sheets package, use the same commands with the Sheets workspace name:
+```
+npm publish --workspace @waleedyousaf07/mcp-google-sheets --dry-run
+npm publish --workspace @waleedyousaf07/mcp-google-sheets --access public
+npm version patch --workspace @waleedyousaf07/mcp-google-sheets
+npm publish --workspace @waleedyousaf07/mcp-google-sheets
+```
+
 ## Generate a new token and configure npm
 1) Go to npmjs.com → Access Tokens → Generate New Token (Granular).
 2) Enable `Publish` and `Bypass 2FA`.
