@@ -11,6 +11,11 @@ const referenceShape = {
   path: z.string().min(1).optional()
 };
 
+const folderReferenceShape = {
+  folderId: z.string().min(1).optional(),
+  folderUrl: z.string().min(1).optional()
+};
+
 function validateExactlyOneReference(
   value: Partial<Record<keyof typeof referenceShape, string | undefined>>,
   ctx: z.RefinementCtx
@@ -101,5 +106,34 @@ export const batchUpdateInputShape = {
 export const batchUpdateInputSchema = z
   .object(batchUpdateInputShape)
   .superRefine(validateExactlyOneReference);
+
+export const copyTemplateToFolderInputShape = {
+  ...referenceShape,
+  ...folderReferenceShape,
+  title: z.string().min(1),
+  replacements: z
+    .array(
+      z.object({
+        searchText: z.string().min(1),
+        replaceText: z.string()
+      })
+    )
+    .default([]),
+  strictPlaceholderCheck: z.boolean().default(true),
+  matchCase: z.boolean().default(false)
+};
+
+export const copyTemplateToFolderInputSchema = z
+  .object(copyTemplateToFolderInputShape)
+  .superRefine((value, ctx) => {
+    validateExactlyOneReference(value, ctx);
+    const folderPresent = [value.folderId, value.folderUrl].filter((item) => Boolean(item));
+    if (folderPresent.length !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide exactly one of folderId or folderUrl."
+      });
+    }
+  });
 
 export type DocumentReferenceInput = z.infer<typeof referenceSchema>;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   batchUpdateInputSchema,
+  copyTemplateToFolderInputSchema,
   getDocumentInputSchema,
   insertTextInputSchema,
   searchDocumentsInputSchema
@@ -54,5 +55,22 @@ describe("tool schemas", () => {
         requests: []
       })
     ).toThrow();
+  });
+
+  it("validates template copy references and folder target", () => {
+    expect(() =>
+      copyTemplateToFolderInputSchema.parse({
+        id: "template-doc-id",
+        title: "Copied",
+        folderUrl: "https://drive.google.com/drive/folders/abc123"
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      copyTemplateToFolderInputSchema.parse({
+        id: "template-doc-id",
+        title: "Copied"
+      })
+    ).toThrow(/folderId or folderUrl/i);
   });
 });

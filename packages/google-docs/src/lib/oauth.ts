@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import {
   DEFAULT_AUTH_TIMEOUT_MS,
   DOCS_SCOPE,
+  DRIVE_FILE_SCOPE,
   DRIVE_METADATA_READ_SCOPE,
   GOOGLE_AUTH_ROOT,
   GOOGLE_TOKEN_URL
@@ -48,7 +49,7 @@ export class OAuthSession {
     this.logger = options.logger;
     this.tokenStore = options.tokenStore;
     this.fetchImpl = options.fetchImpl ?? fetch;
-    this.scopes = [DOCS_SCOPE, DRIVE_METADATA_READ_SCOPE];
+    this.scopes = [DOCS_SCOPE, DRIVE_METADATA_READ_SCOPE, DRIVE_FILE_SCOPE];
   }
 
   get scopeList(): string[] {

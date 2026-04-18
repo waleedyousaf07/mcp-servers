@@ -1,6 +1,6 @@
 {
   "name": "@waleedyousaf07/mcp-hireloop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server wrapper for HireLoop backend APIs",
   "license": "MIT",
   "type": "module",

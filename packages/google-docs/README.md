@@ -37,6 +37,7 @@ This package uses:
 
 - `https://www.googleapis.com/auth/documents`
 - `https://www.googleapis.com/auth/drive.metadata.readonly`
+- `https://www.googleapis.com/auth/drive.file`
 
 That covers reading/writing Docs content plus metadata-based discovery in My Drive.
 
@@ -59,6 +60,7 @@ If a `name` or `path` lookup resolves to 0 or multiple documents, the tool retur
 - `docs.insertText`
 - `docs.replaceAllText`
 - `docs.batchUpdate`
+- `docs.copyTemplateToFolder`
 
 ## Client Config Example
 

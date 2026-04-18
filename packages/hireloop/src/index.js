@@ -88,6 +88,13 @@ async function sheetSync(args) {
   return apiRequest("POST", "/sheet/sync", { run_id: runId });
 }
 
+async function profileContext(args) {
+  const payload = {};
+  if (args.run_id) payload.run_id = String(args.run_id);
+  if (args.config_path) payload.config_path = String(args.config_path);
+  return apiRequest("POST", "/profile/context", payload);
+}
+
 async function applyStart(args) {
   const runId = requireString(args.run_id, "run_id");
   return apiRequest("POST", "/apply/start", { run_id: runId });
@@ -105,6 +112,7 @@ const handlers = {
   "hireloop.jobs_list": jobsList,
   "hireloop.jobs_update": jobsUpdate,
   "hireloop.sheet_sync": sheetSync,
+  "hireloop.profile_context": profileContext,
   "hireloop.apply_start": applyStart,
   "hireloop.apply_status": applyStatus,
 };
@@ -202,6 +210,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
+      name: "hireloop.profile_context",
+      description:
+        "Load normalized profile context (Master CV + optional CCC enrichments) for scoring/CV generation.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          run_id: { type: "string" },
+          config_path: { type: "string" },
+        },
+      },
+    },
+    {
       name: "hireloop.apply_start",
       description: "Start apply execution for approved jobs in a run.",
       inputSchema: {
@@ -239,4 +259,3 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
-

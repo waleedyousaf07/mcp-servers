@@ -43,6 +43,12 @@ interface BatchUpdateResponse {
   };
 }
 
+interface ReplaceAllTextReply {
+  replaceAllText?: {
+    occurrencesChanged?: number;
+  };
+}
+
 type WriteControl = {
   requiredRevisionId?: string;
   targetRevisionId?: string;
@@ -303,6 +309,95 @@ export class GoogleDocsClient {
       documentId,
       replies: response.replies,
       writeControl: response.writeControl
+    };
+  }
+
+  async copyTemplateToFolder(
+    reference: DocumentReferenceInput,
+    input: {
+      folderId?: string;
+      folderUrl?: string;
+      title: string;
+      replacements: Array<{ searchText: string; replaceText: string }>;
+      strictPlaceholderCheck: boolean;
+      matchCase: boolean;
+    }
+  ): Promise<{
+    templateDocumentId: string;
+    documentId: string;
+    documentUrl: string;
+    folderId: string;
+    title?: string;
+    placeholderResults: Array<{ searchText: string; occurrencesChanged: number }>;
+  }> {
+    const templateDocumentId = await this.resolveDocumentId(reference, "docs.copyTemplateToFolder");
+    const folderId = resolveFolderId(input.folderId, input.folderUrl);
+    const copied = await this.requestJson<DriveFileResource>(
+      "docs.copyTemplateToFolder.copy",
+      `${DRIVE_API_ROOT}/files/${encodeURIComponent(templateDocumentId)}/copy`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          name: input.title,
+          parents: [folderId]
+        })
+      }
+    );
+
+    if (!copied.id) {
+      throw new ToolExecutionError("Google returned a copy response without file id.", {
+        kind: "api_error"
+      });
+    }
+
+    const placeholderResults: Array<{ searchText: string; occurrencesChanged: number }> = [];
+    if (input.replacements.length > 0) {
+      const response = await this.performBatchUpdate(
+        copied.id,
+        input.replacements.map((item) => ({
+          replaceAllText: {
+            containsText: {
+              text: item.searchText,
+              matchCase: input.matchCase
+            },
+            replaceText: item.replaceText
+          }
+        })),
+        undefined,
+        "docs.copyTemplateToFolder.replaceAllText"
+      );
+
+      const replies = Array.isArray(response.replies) ? response.replies : [];
+      for (let index = 0; index < input.replacements.length; index += 1) {
+        const replacement = input.replacements[index];
+        const reply = replies[index] as ReplaceAllTextReply | undefined;
+        const changed = reply?.replaceAllText?.occurrencesChanged ?? 0;
+        placeholderResults.push({
+          searchText: replacement.searchText,
+          occurrencesChanged: changed
+        });
+      }
+
+      if (input.strictPlaceholderCheck) {
+        const missing = placeholderResults
+          .filter((entry) => entry.occurrencesChanged < 1)
+          .map((entry) => entry.searchText);
+        if (missing.length > 0) {
+          throw new ToolExecutionError("Missing required placeholders in copied template.", {
+            kind: "tool_error",
+            details: { missingPlaceholders: missing, documentId: copied.id }
+          });
+        }
+      }
+    }
+
+    return {
+      templateDocumentId,
+      documentId: copied.id,
+      documentUrl: toDocumentUrl(copied.id),
+      folderId,
+      title: copied.name,
+      placeholderResults
     };
   }
 
@@ -597,4 +692,36 @@ export function parseDocumentIdFromUrl(url: string): string | undefined {
   }
 
   return undefined;
+}
+
+export function parseFolderIdFromUrl(url: string): string | undefined {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return undefined;
+  }
+
+  const idQuery = parsed.searchParams.get("id");
+  if (idQuery) {
+    return idQuery;
+  }
+
+  const match = parsed.pathname.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  return match?.[1];
+}
+
+function resolveFolderId(folderId?: string, folderUrl?: string): string {
+  if (folderId && folderId.trim().length > 0) {
+    return folderId.trim();
+  }
+  if (folderUrl) {
+    const parsed = parseFolderIdFromUrl(folderUrl);
+    if (parsed) {
+      return parsed;
+    }
+  }
+  throw new ToolExecutionError("Unable to resolve folder id from folderId/folderUrl.", {
+    kind: "tool_error"
+  });
 }

@@ -13,6 +13,8 @@ import { TokenStore } from "./lib/token-store.js";
 import {
   batchUpdateInputSchema,
   batchUpdateInputShape,
+  copyTemplateToFolderInputSchema,
+  copyTemplateToFolderInputShape,
   createDocumentInputSchema,
   createDocumentInputShape,
   getDocumentInputSchema,
@@ -97,6 +99,20 @@ export async function runServer(): Promise<void> {
       return docs.batchUpdate(args, {
         requests: args.requests,
         writeControl: args.writeControl
+      });
+    })
+  );
+
+  server.tool("docs.copyTemplateToFolder", copyTemplateToFolderInputShape, async (rawArgs) =>
+    runTool("docs.copyTemplateToFolder", logger, async () => {
+      const args = copyTemplateToFolderInputSchema.parse(rawArgs);
+      return docs.copyTemplateToFolder(args, {
+        folderId: args.folderId,
+        folderUrl: args.folderUrl,
+        title: args.title,
+        replacements: args.replacements,
+        strictPlaceholderCheck: args.strictPlaceholderCheck,
+        matchCase: args.matchCase
       });
     })
   );
