@@ -77,8 +77,15 @@ async function jobsList(args) {
 async function jobsUpdate(args) {
   const jobs = Array.isArray(args.jobs) ? args.jobs : [];
   if (jobs.length === 0) throw new Error("jobs is required and must be a non-empty array");
+  let runId = args.run_id;
+  if (!runId) {
+    const runIds = [...new Set(jobs.map((job) => job?.run_id).filter((value) => typeof value === "string" && value.trim().length > 0))];
+    if (runIds.length === 1) {
+      runId = runIds[0];
+    }
+  }
   return apiRequest("PATCH", "/jobs", {
-    run_id: args.run_id,
+    run_id: runId,
     jobs,
   });
 }
@@ -92,6 +99,7 @@ async function profileContext(args) {
   const payload = {};
   if (args.run_id) payload.run_id = String(args.run_id);
   if (args.config_path) payload.config_path = String(args.config_path);
+  if (typeof args.compact === "boolean") payload.compact = args.compact;
   return apiRequest("POST", "/profile/context", payload);
 }
 
@@ -218,6 +226,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           run_id: { type: "string" },
           config_path: { type: "string" },
+          compact: { type: "boolean" },
         },
       },
     },
