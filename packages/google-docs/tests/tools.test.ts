@@ -73,4 +73,22 @@ describe("tool schemas", () => {
       })
     ).toThrow(/folderId or folderUrl/i);
   });
+
+  it("accepts templateDocUrl alias and replacement object map", () => {
+    const parsed = copyTemplateToFolderInputSchema.parse({
+      templateDocUrl: "https://docs.google.com/document/d/template-id/edit",
+      folderUrl: "https://drive.google.com/drive/folders/folder-id",
+      title: "Copied CV",
+      replacements: {
+        "{{CANDIDATE_NAME}}": "Jane Doe",
+        "{{TARGET_ROLE}}": "Senior Frontend Engineer"
+      }
+    });
+
+    expect(parsed.url).toBe("https://docs.google.com/document/d/template-id/edit");
+    expect(parsed.replacements).toEqual([
+      { searchText: "{{CANDIDATE_NAME}}", replaceText: "Jane Doe" },
+      { searchText: "{{TARGET_ROLE}}", replaceText: "Senior Frontend Engineer" }
+    ]);
+  });
 });

@@ -9,7 +9,7 @@ export const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 
 export const DOCS_SCOPE = "https://www.googleapis.com/auth/documents";
 export const DRIVE_METADATA_READ_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly";
-export const DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
 
 export const DOCUMENT_SEARCH_DEFAULT_MAX_RESULTS = 10;
 export const DOCUMENT_SEARCH_HARD_MAX_RESULTS = 50;

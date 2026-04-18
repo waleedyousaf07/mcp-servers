@@ -16,6 +16,13 @@ const folderReferenceShape = {
   folderUrl: z.string().min(1).optional()
 };
 
+const replacementEntrySchema = z.object({
+  searchText: z.string().min(1),
+  replaceText: z.string()
+});
+
+const replacementMapSchema = z.record(z.string().min(1), z.string());
+
 function validateExactlyOneReference(
   value: Partial<Record<keyof typeof referenceShape, string | undefined>>,
   ctx: z.RefinementCtx
@@ -109,22 +116,32 @@ export const batchUpdateInputSchema = z
 
 export const copyTemplateToFolderInputShape = {
   ...referenceShape,
+  templateDocId: z.string().min(1).optional(),
+  templateDocUrl: z.string().min(1).optional(),
   ...folderReferenceShape,
   title: z.string().min(1),
-  replacements: z
-    .array(
-      z.object({
-        searchText: z.string().min(1),
-        replaceText: z.string()
-      })
-    )
-    .default([]),
+  replacements: z.union([z.array(replacementEntrySchema), replacementMapSchema]).default([]),
   strictPlaceholderCheck: z.boolean().default(true),
   matchCase: z.boolean().default(false)
 };
 
 export const copyTemplateToFolderInputSchema = z
   .object(copyTemplateToFolderInputShape)
+  .transform((value) => {
+    const replacements = Array.isArray(value.replacements)
+      ? value.replacements
+      : Object.entries(value.replacements).map(([searchText, replaceText]) => ({
+          searchText,
+          replaceText
+        }));
+
+    return {
+      ...value,
+      id: value.id ?? value.templateDocId,
+      url: value.url ?? value.templateDocUrl,
+      replacements
+    };
+  })
   .superRefine((value, ctx) => {
     validateExactlyOneReference(value, ctx);
     const folderPresent = [value.folderId, value.folderUrl].filter((item) => Boolean(item));

@@ -37,7 +37,7 @@ This package uses:
 
 - `https://www.googleapis.com/auth/documents`
 - `https://www.googleapis.com/auth/drive.metadata.readonly`
-- `https://www.googleapis.com/auth/drive.file`
+- `https://www.googleapis.com/auth/drive`
 
 That covers reading/writing Docs content plus metadata-based discovery in My Drive.
 
@@ -85,6 +85,7 @@ If your MCP client supports OS-specific overrides, only add a Windows-specific `
 
 - Browser did not open: the server prints the Google auth URL to `stderr`. Open it manually in a browser on the same machine. This is expected on headless Linux or any machine without a desktop opener.
 - `invalid_grant`: your stored refresh token is no longer valid. Delete the saved token from your user config directory and authorize again.
+- `insufficient authentication scopes` (403) on `docs.copyTemplateToFolder`: your stored token is missing a required scope (for example `drive`). Delete the saved token and re-authorize so consent includes the current scope set.
 - Permission errors: confirm the Google Docs and Google Drive APIs are enabled in your Google Cloud project and the OAuth client is a Desktop app.
 
 ## Local Commands

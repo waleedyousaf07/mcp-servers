@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import {
   DEFAULT_AUTH_TIMEOUT_MS,
   DOCS_SCOPE,
-  DRIVE_FILE_SCOPE,
+  DRIVE_SCOPE,
   DRIVE_METADATA_READ_SCOPE,
   GOOGLE_AUTH_ROOT,
   GOOGLE_TOKEN_URL
@@ -49,7 +49,7 @@ export class OAuthSession {
     this.logger = options.logger;
     this.tokenStore = options.tokenStore;
     this.fetchImpl = options.fetchImpl ?? fetch;
-    this.scopes = [DOCS_SCOPE, DRIVE_METADATA_READ_SCOPE, DRIVE_FILE_SCOPE];
+    this.scopes = [DOCS_SCOPE, DRIVE_METADATA_READ_SCOPE, DRIVE_SCOPE];
   }
 
   get scopeList(): string[] {
@@ -61,6 +61,16 @@ export class OAuthSession {
     if (!token) {
       token = await this.tokenStore.load();
       this.cachedToken = token;
+    }
+
+    if (token && !this.hasRequiredScopes(token.scope)) {
+      this.logger.warn("oauth_token_missing_scopes_reauthorizing", {
+        requiredScopes: this.scopes,
+        grantedScope: token.scope ?? null
+      });
+      await this.tokenStore.clear();
+      token = null;
+      this.cachedToken = null;
     }
 
     if (!token) {
@@ -83,6 +93,14 @@ export class OAuthSession {
     }
 
     return token.accessToken;
+  }
+
+  private hasRequiredScopes(scopeValue?: string): boolean {
+    if (!scopeValue) {
+      return false;
+    }
+    const granted = new Set(scopeValue.split(/\s+/).map((item) => item.trim()).filter(Boolean));
+    return this.scopes.every((scope) => granted.has(scope));
   }
 
   private async refreshOrReauthorize(token: StoredToken): Promise<StoredToken> {
