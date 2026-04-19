@@ -460,36 +460,68 @@ export class GoogleDocsClient {
       clearTemplateContent: boolean;
     }
   ): Promise<{
-    templateDocumentId: string;
+    templateDocumentId?: string;
     documentId: string;
     documentUrl: string;
     folderId: string;
     title?: string;
     composeStats: Record<string, unknown>;
   }> {
-    const templateDocumentId = await this.resolveDocumentId(reference, "docs.composeFromPlan");
     const folderId = resolveFolderId(input.folderId, input.folderUrl);
-    const copied = await this.requestJson<DriveFileResource>(
-      "docs.composeFromPlan.copy",
-      `${DRIVE_API_ROOT}/files/${encodeURIComponent(templateDocumentId)}/copy`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          name: input.title,
-          parents: [folderId]
-        })
-      }
-    );
+    const hasTemplateReference = hasDocumentReference(reference);
+    let templateDocumentId: string | undefined;
+    let targetDocumentId: string;
+    let targetTitle: string | undefined;
 
-    if (!copied.id) {
-      throw new ToolExecutionError("Google returned a copy response without file id.", {
-        kind: "api_error"
-      });
+    if (hasTemplateReference) {
+      templateDocumentId = await this.resolveDocumentId(reference, "docs.composeFromPlan");
+      const copied = await this.requestJson<DriveFileResource>(
+        "docs.composeFromPlan.copy",
+        `${DRIVE_API_ROOT}/files/${encodeURIComponent(templateDocumentId)}/copy`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            name: input.title,
+            parents: [folderId]
+          })
+        }
+      );
+
+      if (!copied.id) {
+        throw new ToolExecutionError("Google returned a copy response without file id.", {
+          kind: "api_error"
+        });
+      }
+
+      targetDocumentId = copied.id;
+      targetTitle = copied.name;
+    } else {
+      const created = await this.requestJson<DriveFileResource>(
+        "docs.composeFromPlan.create",
+        `${DRIVE_API_ROOT}/files`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            name: input.title,
+            mimeType: DOCS_MIME_TYPE,
+            parents: [folderId]
+          })
+        }
+      );
+
+      if (!created.id) {
+        throw new ToolExecutionError("Google returned a create response without file id.", {
+          kind: "api_error"
+        });
+      }
+
+      targetDocumentId = created.id;
+      targetTitle = created.name;
     }
 
     const copiedDocument = await this.requestJson<DocumentResource>(
       "docs.composeFromPlan.getDocument",
-      `${DOCS_API_ROOT}/documents/${encodeURIComponent(copied.id)}`
+      `${DOCS_API_ROOT}/documents/${encodeURIComponent(targetDocumentId)}`
     );
     const endIndex = extractDocumentEndIndex(copiedDocument);
     const composed = buildComposedDocument(input.plan);
@@ -614,15 +646,15 @@ export class GoogleDocsClient {
     }
 
     if (requests.length > 0) {
-      await this.performBatchUpdate(copied.id, requests, undefined, "docs.composeFromPlan.batchUpdate");
+      await this.performBatchUpdate(targetDocumentId, requests, undefined, "docs.composeFromPlan.batchUpdate");
     }
 
     return {
       templateDocumentId,
-      documentId: copied.id,
-      documentUrl: toDocumentUrl(copied.id),
+      documentId: targetDocumentId,
+      documentUrl: toDocumentUrl(targetDocumentId),
       folderId,
-      title: copied.name,
+      title: targetTitle,
       composeStats: composed.stats
     };
   }
@@ -1109,4 +1141,8 @@ function resolveFolderId(folderId?: string, folderUrl?: string): string {
   throw new ToolExecutionError("Unable to resolve folder id from folderId/folderUrl.", {
     kind: "tool_error"
   });
+}
+
+function hasDocumentReference(reference: DocumentReferenceInput): boolean {
+  return Boolean(reference.id || reference.url || reference.name || reference.path);
 }

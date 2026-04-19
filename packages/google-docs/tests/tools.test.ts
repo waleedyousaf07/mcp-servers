@@ -116,4 +116,48 @@ describe("tool schemas", () => {
     expect(parsed.url).toBe("https://docs.google.com/document/d/template-id/edit");
     expect(parsed.plan.sections[0]?.heading).toBe("SUMMARY");
   });
+
+  it("accepts composeFromPlan without template reference (blank-doc mode)", () => {
+    const parsed = composeFromPlanInputSchema.parse({
+      folderUrl: "https://drive.google.com/drive/folders/folder-id",
+      title: "Composed CV",
+      plan: {
+        header: {
+          name: "Jane Doe"
+        },
+        sections: [
+          {
+            heading: "SUMMARY",
+            blocks: [{ type: "paragraph", text: "Strong frontend engineer." }]
+          }
+        ]
+      }
+    });
+
+    expect(parsed.id).toBeUndefined();
+    expect(parsed.url).toBeUndefined();
+    expect(parsed.title).toBe("Composed CV");
+  });
+
+  it("rejects composeFromPlan when multiple template references are provided", () => {
+    expect(() =>
+      composeFromPlanInputSchema.parse({
+        id: "doc-id-1",
+        url: "https://docs.google.com/document/d/doc-id-2/edit",
+        folderUrl: "https://drive.google.com/drive/folders/folder-id",
+        title: "Composed CV",
+        plan: {
+          header: {
+            name: "Jane Doe"
+          },
+          sections: [
+            {
+              heading: "SUMMARY",
+              blocks: [{ type: "paragraph", text: "Strong frontend engineer." }]
+            }
+          ]
+        }
+      })
+    ).toThrow(/at most one of id, url, name, or path/i);
+  });
 });

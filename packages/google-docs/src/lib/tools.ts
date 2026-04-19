@@ -89,6 +89,19 @@ function validateExactlyOneReference(
   }
 }
 
+function validateAtMostOneReference(
+  value: Partial<Record<keyof typeof referenceShape, string | undefined>>,
+  ctx: z.RefinementCtx
+): void {
+  const present = [value.id, value.url, value.name, value.path].filter((item) => Boolean(item));
+  if (present.length > 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Provide at most one of id, url, name, or path."
+    });
+  }
+}
+
 const referenceSchema = z.object(referenceShape).superRefine(validateExactlyOneReference);
 
 const writeControlSchema = z
@@ -224,7 +237,7 @@ export const composeFromPlanInputSchema = z
     url: value.url ?? value.templateDocUrl
   }))
   .superRefine((value, ctx) => {
-    validateExactlyOneReference(value, ctx);
+    validateAtMostOneReference(value, ctx);
     const folderPresent = [value.folderId, value.folderUrl].filter((item) => Boolean(item));
     if (folderPresent.length !== 1) {
       ctx.addIssue({

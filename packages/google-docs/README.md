@@ -43,7 +43,7 @@ That covers reading/writing Docs content plus metadata-based discovery in My Dri
 
 ## Reference Resolution
 
-All document-targeting tools accept exactly one reference field:
+Most document-targeting tools accept exactly one reference field:
 
 - `id`
 - `url`
@@ -51,6 +51,8 @@ All document-targeting tools accept exactly one reference field:
 - `path` (My Drive style like `Folder/Subfolder/FileName`)
 
 If a `name` or `path` lookup resolves to 0 or multiple documents, the tool returns an error with candidate metadata.
+
+`docs.composeFromPlan` also supports template-free mode: you may omit all reference fields, and it will create a blank Google Doc in the target folder before applying the render plan.
 
 ## Tools
 
