@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   batchUpdateInputSchema,
+  composeFromPlanInputSchema,
   copyTemplateToFolderInputSchema,
   getDocumentInputSchema,
   insertTextInputSchema,
@@ -90,5 +91,29 @@ describe("tool schemas", () => {
       { searchText: "{{CANDIDATE_NAME}}", replaceText: "Jane Doe" },
       { searchText: "{{TARGET_ROLE}}", replaceText: "Senior Frontend Engineer" }
     ]);
+  });
+
+  it("validates composeFromPlan input and template aliases", () => {
+    const parsed = composeFromPlanInputSchema.parse({
+      templateDocUrl: "https://docs.google.com/document/d/template-id/edit",
+      folderUrl: "https://drive.google.com/drive/folders/folder-id",
+      title: "Composed CV",
+      plan: {
+        header: {
+          name: "Jane Doe",
+          title: "SOFTWARE ENGINEER",
+          contactLine: "jane@example.com"
+        },
+        sections: [
+          {
+            heading: "SUMMARY",
+            blocks: [{ type: "paragraph", text: "Strong frontend engineer." }]
+          }
+        ]
+      }
+    });
+
+    expect(parsed.url).toBe("https://docs.google.com/document/d/template-id/edit");
+    expect(parsed.plan.sections[0]?.heading).toBe("SUMMARY");
   });
 });

@@ -13,6 +13,8 @@ import { TokenStore } from "./lib/token-store.js";
 import {
   batchUpdateInputSchema,
   batchUpdateInputShape,
+  composeFromPlanInputSchema,
+  composeFromPlanInputShape,
   copyTemplateToFolderInputSchema,
   copyTemplateToFolderInputShape,
   createDocumentInputSchema,
@@ -113,6 +115,19 @@ export async function runServer(): Promise<void> {
         replacements: args.replacements,
         strictPlaceholderCheck: args.strictPlaceholderCheck,
         matchCase: args.matchCase
+      });
+    })
+  );
+
+  server.tool("docs.composeFromPlan", composeFromPlanInputShape, async (rawArgs) =>
+    runTool("docs.composeFromPlan", logger, async () => {
+      const args = composeFromPlanInputSchema.parse(rawArgs);
+      return docs.composeFromPlan(args, {
+        folderId: args.folderId,
+        folderUrl: args.folderUrl,
+        title: args.title,
+        plan: args.plan,
+        clearTemplateContent: args.clearTemplateContent
       });
     })
   );

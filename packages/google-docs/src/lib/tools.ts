@@ -23,6 +23,59 @@ const replacementEntrySchema = z.object({
 
 const replacementMapSchema = z.record(z.string().min(1), z.string());
 
+const composeParagraphBlockSchema = z.object({
+  type: z.literal("paragraph"),
+  text: z.string().min(1)
+});
+
+const composeBulletsBlockSchema = z.object({
+  type: z.literal("bullets"),
+  items: z.array(z.string().min(1)).min(1)
+});
+
+const composeExperienceBlockSchema = z.object({
+  type: z.literal("experience_entry"),
+  role: z.string().min(1),
+  company: z.string().min(1),
+  dates: z.string().min(1),
+  company_description: z.string().optional(),
+  project: z.string().optional(),
+  tech_stack: z.string().optional(),
+  bullets: z.array(z.string().min(1)).min(1)
+});
+
+const composeBlockSchema = z.union([
+  composeParagraphBlockSchema,
+  composeBulletsBlockSchema,
+  composeExperienceBlockSchema
+]);
+
+const composeSectionSchema = z.object({
+  heading: z.string().min(1),
+  blocks: z.array(composeBlockSchema).default([])
+});
+
+const composePlanSchema = z.object({
+  document_type: z.string().min(1).default("cv_v1"),
+  style: z
+    .object({
+      fontFamily: z.string().min(1).default("Calibri"),
+      fontSizePt: z.number().min(9).max(14).default(11),
+      headingCase: z.enum(["UPPERCASE", "TITLE_CASE"]).default("UPPERCASE"),
+      dateAlignment: z.enum(["left", "right"]).default("right"),
+      compactSpacing: z.boolean().default(true),
+      useTables: z.boolean().default(false)
+    })
+    .default({}),
+  header: z.object({
+    name: z.string().min(1),
+    title: z.string().optional(),
+    contactLine: z.string().optional()
+  }),
+  sections: z.array(composeSectionSchema).min(1),
+  constraints: z.record(z.string(), z.unknown()).optional()
+});
+
 function validateExactlyOneReference(
   value: Partial<Record<keyof typeof referenceShape, string | undefined>>,
   ctx: z.RefinementCtx
@@ -142,6 +195,34 @@ export const copyTemplateToFolderInputSchema = z
       replacements
     };
   })
+  .superRefine((value, ctx) => {
+    validateExactlyOneReference(value, ctx);
+    const folderPresent = [value.folderId, value.folderUrl].filter((item) => Boolean(item));
+    if (folderPresent.length !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide exactly one of folderId or folderUrl."
+      });
+    }
+  });
+
+export const composeFromPlanInputShape = {
+  ...referenceShape,
+  templateDocId: z.string().min(1).optional(),
+  templateDocUrl: z.string().min(1).optional(),
+  ...folderReferenceShape,
+  title: z.string().min(1),
+  plan: composePlanSchema,
+  clearTemplateContent: z.boolean().default(true)
+};
+
+export const composeFromPlanInputSchema = z
+  .object(composeFromPlanInputShape)
+  .transform((value) => ({
+    ...value,
+    id: value.id ?? value.templateDocId,
+    url: value.url ?? value.templateDocUrl
+  }))
   .superRefine((value, ctx) => {
     validateExactlyOneReference(value, ctx);
     const folderPresent = [value.folderId, value.folderUrl].filter((item) => Boolean(item));

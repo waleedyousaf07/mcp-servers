@@ -49,6 +49,55 @@ interface ReplaceAllTextReply {
   };
 }
 
+interface ComposePlanStyle {
+  fontFamily: string;
+  fontSizePt: number;
+  headingCase: "UPPERCASE" | "TITLE_CASE";
+  dateAlignment: "left" | "right";
+  compactSpacing: boolean;
+  useTables: boolean;
+}
+
+interface ComposePlanParagraphBlock {
+  type: "paragraph";
+  text: string;
+}
+
+interface ComposePlanBulletsBlock {
+  type: "bullets";
+  items: string[];
+}
+
+interface ComposePlanExperienceBlock {
+  type: "experience_entry";
+  role: string;
+  company: string;
+  dates: string;
+  company_description?: string;
+  project?: string;
+  tech_stack?: string;
+  bullets: string[];
+}
+
+type ComposePlanBlock = ComposePlanParagraphBlock | ComposePlanBulletsBlock | ComposePlanExperienceBlock;
+
+interface ComposePlanSection {
+  heading: string;
+  blocks: ComposePlanBlock[];
+}
+
+interface ComposePlan {
+  document_type: string;
+  style: ComposePlanStyle;
+  header: {
+    name: string;
+    title?: string;
+    contactLine?: string;
+  };
+  sections: ComposePlanSection[];
+  constraints?: Record<string, unknown>;
+}
+
 type WriteControl = {
   requiredRevisionId?: string;
   targetRevisionId?: string;
@@ -401,6 +450,183 @@ export class GoogleDocsClient {
     };
   }
 
+  async composeFromPlan(
+    reference: DocumentReferenceInput,
+    input: {
+      folderId?: string;
+      folderUrl?: string;
+      title: string;
+      plan: ComposePlan;
+      clearTemplateContent: boolean;
+    }
+  ): Promise<{
+    templateDocumentId: string;
+    documentId: string;
+    documentUrl: string;
+    folderId: string;
+    title?: string;
+    composeStats: Record<string, unknown>;
+  }> {
+    const templateDocumentId = await this.resolveDocumentId(reference, "docs.composeFromPlan");
+    const folderId = resolveFolderId(input.folderId, input.folderUrl);
+    const copied = await this.requestJson<DriveFileResource>(
+      "docs.composeFromPlan.copy",
+      `${DRIVE_API_ROOT}/files/${encodeURIComponent(templateDocumentId)}/copy`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          name: input.title,
+          parents: [folderId]
+        })
+      }
+    );
+
+    if (!copied.id) {
+      throw new ToolExecutionError("Google returned a copy response without file id.", {
+        kind: "api_error"
+      });
+    }
+
+    const copiedDocument = await this.requestJson<DocumentResource>(
+      "docs.composeFromPlan.getDocument",
+      `${DOCS_API_ROOT}/documents/${encodeURIComponent(copied.id)}`
+    );
+    const endIndex = extractDocumentEndIndex(copiedDocument);
+    const composed = buildComposedDocument(input.plan);
+
+    const requests: Array<Record<string, unknown>> = [];
+    if (input.clearTemplateContent && endIndex > 2) {
+      requests.push({
+        deleteContentRange: {
+          range: {
+            startIndex: 1,
+            endIndex: endIndex - 1
+          }
+        }
+      });
+    }
+
+    if (composed.text.length > 0) {
+      const globalStart = 1;
+      const globalEnd = globalStart + composed.text.length;
+      requests.push({
+        insertText: {
+          location: { index: globalStart },
+          text: composed.text
+        }
+      });
+      requests.push({
+        updateTextStyle: {
+          range: { startIndex: globalStart, endIndex: globalEnd },
+          textStyle: {
+            weightedFontFamily: { fontFamily: input.plan.style.fontFamily },
+            fontSize: { magnitude: input.plan.style.fontSizePt, unit: "PT" }
+          },
+          fields: "weightedFontFamily,fontSize"
+        }
+      });
+      if (input.plan.style.compactSpacing) {
+        requests.push({
+          updateParagraphStyle: {
+            range: { startIndex: globalStart, endIndex: globalEnd },
+            paragraphStyle: {
+              lineSpacing: 115,
+              spaceAbove: { magnitude: 0, unit: "PT" },
+              spaceBelow: { magnitude: 0, unit: "PT" }
+            },
+            fields: "lineSpacing,spaceAbove,spaceBelow"
+          }
+        });
+      }
+
+      if (composed.ranges.nameRange) {
+        requests.push({
+          updateTextStyle: {
+            range: toTextRange(composed.ranges.nameRange),
+            textStyle: {
+              bold: true,
+              fontSize: { magnitude: input.plan.style.fontSizePt + 4, unit: "PT" }
+            },
+            fields: "bold,fontSize"
+          }
+        });
+        requests.push({
+          updateParagraphStyle: {
+            range: toParagraphRange(composed.ranges.nameRange),
+            paragraphStyle: { alignment: "CENTER" },
+            fields: "alignment"
+          }
+        });
+      }
+
+      for (const centered of [composed.ranges.titleRange, composed.ranges.contactRange]) {
+        if (!centered) continue;
+        requests.push({
+          updateParagraphStyle: {
+            range: toParagraphRange(centered),
+            paragraphStyle: { alignment: "CENTER" },
+            fields: "alignment"
+          }
+        });
+      }
+
+      for (const heading of composed.ranges.headingRanges) {
+        requests.push({
+          updateTextStyle: {
+            range: toTextRange(heading),
+            textStyle: {
+              bold: true,
+              fontSize: { magnitude: input.plan.style.fontSizePt + 1, unit: "PT" }
+            },
+            fields: "bold,fontSize"
+          }
+        });
+      }
+
+      for (const roleRange of composed.ranges.roleRanges) {
+        requests.push({
+          updateTextStyle: {
+            range: toTextRange(roleRange),
+            textStyle: { bold: true },
+            fields: "bold"
+          }
+        });
+      }
+
+      for (const rightAligned of composed.ranges.rightAlignedRanges) {
+        requests.push({
+          updateParagraphStyle: {
+            range: toParagraphRange(rightAligned),
+            paragraphStyle: { alignment: input.plan.style.dateAlignment === "right" ? "END" : "START" },
+            fields: "alignment"
+          }
+        });
+      }
+
+      for (const bulletRange of composed.ranges.bulletRanges) {
+        requests.push({
+          createParagraphBullets: {
+            range: toParagraphRange(bulletRange),
+            bulletPreset: "BULLET_DISC_CIRCLE_SQUARE"
+          }
+        });
+      }
+    }
+
+    if (requests.length > 0) {
+      await this.performBatchUpdate(copied.id, requests, undefined, "docs.composeFromPlan.batchUpdate");
+    }
+
+    return {
+      templateDocumentId,
+      documentId: copied.id,
+      documentUrl: toDocumentUrl(copied.id),
+      folderId,
+      title: copied.name,
+      composeStats: composed.stats
+    };
+  }
+
   private async performBatchUpdate(
     documentId: string,
     requests: Array<Record<string, unknown>>,
@@ -599,6 +825,165 @@ export class GoogleDocsClient {
       });
     }
   }
+}
+
+type IndexRange = { start: number; end: number };
+
+interface ComposedRanges {
+  nameRange?: IndexRange;
+  titleRange?: IndexRange;
+  contactRange?: IndexRange;
+  headingRanges: IndexRange[];
+  roleRanges: IndexRange[];
+  rightAlignedRanges: IndexRange[];
+  bulletRanges: IndexRange[];
+}
+
+function extractDocumentEndIndex(document: DocumentResource): number {
+  const body = document.body as { content?: Array<{ endIndex?: number }> } | undefined;
+  if (!body || !Array.isArray(body.content) || body.content.length === 0) {
+    return 2;
+  }
+  const maxEnd = body.content.reduce((acc, item) => {
+    const end = typeof item.endIndex === "number" ? item.endIndex : 0;
+    return Math.max(acc, end);
+  }, 0);
+  return Math.max(maxEnd, 2);
+}
+
+function toTextRange(range: IndexRange): { startIndex: number; endIndex: number } {
+  return { startIndex: range.start, endIndex: range.end };
+}
+
+function toParagraphRange(range: IndexRange): { startIndex: number; endIndex: number } {
+  return { startIndex: range.start, endIndex: range.end + 1 };
+}
+
+function headingText(value: string, mode: "UPPERCASE" | "TITLE_CASE"): string {
+  const cleaned = value.trim();
+  return mode === "TITLE_CASE"
+    ? cleaned
+        .toLowerCase()
+        .split(" ")
+        .filter(Boolean)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ")
+    : cleaned.toUpperCase();
+}
+
+function cleanText(value: string | undefined): string {
+  return (value ?? "")
+    .replace(/\s+/g, " ")
+    .replace(/\u00A0/g, " ")
+    .trim();
+}
+
+function buildComposedDocument(plan: ComposePlan): {
+  text: string;
+  ranges: ComposedRanges;
+  stats: Record<string, unknown>;
+} {
+  let buffer = "";
+  let cursor = 1;
+  const ranges: ComposedRanges = {
+    headingRanges: [],
+    roleRanges: [],
+    rightAlignedRanges: [],
+    bulletRanges: []
+  };
+  let paragraphCount = 0;
+  let bulletCount = 0;
+
+  const appendLine = (text: string): IndexRange | undefined => {
+    const cleaned = cleanText(text);
+    if (!cleaned) {
+      return undefined;
+    }
+    const start = cursor;
+    buffer += `${cleaned}\n`;
+    cursor += cleaned.length + 1;
+    paragraphCount += 1;
+    return { start, end: start + cleaned.length };
+  };
+
+  const appendBlankLine = (): void => {
+    buffer += "\n";
+    cursor += 1;
+  };
+
+  const nameRange = appendLine(plan.header.name);
+  if (nameRange) ranges.nameRange = nameRange;
+  const titleRange = appendLine(plan.header.title ?? "");
+  if (titleRange) ranges.titleRange = titleRange;
+  const contactRange = appendLine(plan.header.contactLine ?? "");
+  if (contactRange) ranges.contactRange = contactRange;
+  appendBlankLine();
+
+  for (let sectionIndex = 0; sectionIndex < plan.sections.length; sectionIndex += 1) {
+    const section = plan.sections[sectionIndex];
+    const headingRange = appendLine(headingText(section.heading, plan.style.headingCase));
+    if (headingRange) {
+      ranges.headingRanges.push(headingRange);
+    }
+
+    for (const block of section.blocks) {
+      if (block.type === "paragraph") {
+        appendLine(block.text);
+        continue;
+      }
+      if (block.type === "bullets") {
+        for (const item of block.items) {
+          const bulletRange = appendLine(item);
+          if (bulletRange) {
+            ranges.bulletRanges.push(bulletRange);
+            bulletCount += 1;
+          }
+        }
+        continue;
+      }
+
+      const roleLine = appendLine(`${block.role} - ${block.company}`);
+      if (roleLine) {
+        ranges.roleRanges.push(roleLine);
+      }
+      const dates = appendLine(block.dates);
+      if (dates) {
+        ranges.rightAlignedRanges.push(dates);
+      }
+      if (block.company_description) {
+        appendLine(block.company_description);
+      }
+      if (block.project) {
+        appendLine(`Project - ${block.project}`);
+      }
+      if (block.tech_stack) {
+        appendLine(`Tech Stack - ${block.tech_stack}`);
+      }
+      for (const item of block.bullets) {
+        const bulletRange = appendLine(item);
+        if (bulletRange) {
+          ranges.bulletRanges.push(bulletRange);
+          bulletCount += 1;
+        }
+      }
+      appendBlankLine();
+    }
+
+    if (sectionIndex < plan.sections.length - 1) {
+      appendBlankLine();
+    }
+  }
+
+  return {
+    text: buffer,
+    ranges,
+    stats: {
+      paragraphs: paragraphCount,
+      bullets: bulletCount,
+      sections: plan.sections.length,
+      characters: buffer.length
+    }
+  };
 }
 
 function ensureSingleCandidate(

@@ -103,6 +103,20 @@ async function profileContext(args) {
   return apiRequest("POST", "/profile/context", payload);
 }
 
+async function cvRenderPlan(args) {
+  const runId = requireString(args.run_id, "run_id");
+  const jobId = requireString(args.job_id, "job_id");
+  if (!args.cv_content || typeof args.cv_content !== "object" || Array.isArray(args.cv_content)) {
+    throw new Error("cv_content is required and must be an object");
+  }
+  return apiRequest("POST", "/cv/render-plan", {
+    run_id: runId,
+    job_id: jobId,
+    cv_content: args.cv_content,
+    retry_attempt: typeof args.retry_attempt === "number" ? args.retry_attempt : 0,
+  });
+}
+
 async function applyStart(args) {
   const runId = requireString(args.run_id, "run_id");
   return apiRequest("POST", "/apply/start", { run_id: runId });
@@ -121,6 +135,7 @@ const handlers = {
   "hireloop.jobs_update": jobsUpdate,
   "hireloop.sheet_sync": sheetSync,
   "hireloop.profile_context": profileContext,
+  "hireloop.cv_render_plan": cvRenderPlan,
   "hireloop.apply_start": applyStart,
   "hireloop.apply_status": applyStatus,
 };
@@ -228,6 +243,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           config_path: { type: "string" },
           compact: { type: "boolean" },
         },
+      },
+    },
+    {
+      name: "hireloop.cv_render_plan",
+      description: "Validate structured CV content and build deterministic render plan for one job.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          run_id: { type: "string" },
+          job_id: { type: "string" },
+          cv_content: { type: "object" },
+          retry_attempt: { type: "number" },
+        },
+        required: ["run_id", "job_id", "cv_content"],
       },
     },
     {

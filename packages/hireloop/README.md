@@ -11,6 +11,7 @@ Thin MCP wrapper for a running HireLoop backend service.
 - `hireloop.jobs_update`
 - `hireloop.sheet_sync`
 - `hireloop.profile_context`
+- `hireloop.cv_render_plan`
 - `hireloop.apply_start`
 - `hireloop.apply_status`
 

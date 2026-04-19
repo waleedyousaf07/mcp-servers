@@ -61,6 +61,7 @@ If a `name` or `path` lookup resolves to 0 or multiple documents, the tool retur
 - `docs.replaceAllText`
 - `docs.batchUpdate`
 - `docs.copyTemplateToFolder`
+- `docs.composeFromPlan`
 
 ## Client Config Example
 
