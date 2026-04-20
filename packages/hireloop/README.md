@@ -5,6 +5,7 @@ Thin MCP wrapper for a running HireLoop backend service.
 ## Tools
 
 - `hireloop.run_start`
+- `hireloop.run_active`
 - `hireloop.run_status`
 - `hireloop.run_results`
 - `hireloop.jobs_list`

@@ -59,6 +59,10 @@ async function runStatus(args) {
   return apiRequest("GET", `/runs/${encodeURIComponent(runId)}`);
 }
 
+async function runActive() {
+  return apiRequest("GET", "/runs/active");
+}
+
 async function runResults(args) {
   const runId = requireString(args.run_id, "run_id");
   return apiRequest("GET", `/runs/${encodeURIComponent(runId)}/results`);
@@ -129,6 +133,7 @@ async function applyStatus(args) {
 
 const handlers = {
   "hireloop.run_start": runStart,
+  "hireloop.run_active": runActive,
   "hireloop.run_status": runStatus,
   "hireloop.run_results": runResults,
   "hireloop.jobs_list": jobsList,
@@ -156,6 +161,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           trigger: { type: "string", enum: ["schedule", "on_demand"] },
           config_path: { type: "string" },
         },
+      },
+    },
+    {
+      name: "hireloop.run_active",
+      description: "Get active run lock status and active run details (if any).",
+      inputSchema: {
+        type: "object",
+        properties: {},
       },
     },
     {
