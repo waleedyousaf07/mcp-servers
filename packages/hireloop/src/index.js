@@ -4,7 +4,6 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
 const BASE_URL = process.env.HIRELOOP_BASE_URL || "http://127.0.0.1:8787";
-const TIMEOUT_MS = Number(process.env.HIRELOOP_TIMEOUT_MS || 30000);
 
 function buildResponse(result, isError = false) {
   return {
@@ -14,30 +13,23 @@ function buildResponse(result, isError = false) {
 }
 
 async function apiRequest(method, path, body) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers: { "content-type": "application/json" },
+    body: body == null ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  let json;
   try {
-    const res = await fetch(`${BASE_URL}${path}`, {
-      method,
-      headers: { "content-type": "application/json" },
-      body: body == null ? undefined : JSON.stringify(body),
-      signal: controller.signal,
-    });
-    const text = await res.text();
-    let json;
-    try {
-      json = text ? JSON.parse(text) : {};
-    } catch {
-      json = { raw: text };
-    }
-    if (!res.ok) {
-      const detail = typeof json?.detail === "string" ? json.detail : JSON.stringify(json);
-      throw new Error(`HireLoop API ${res.status}: ${detail}`);
-    }
-    return json;
-  } finally {
-    clearTimeout(timer);
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    json = { raw: text };
   }
+  if (!res.ok) {
+    const detail = typeof json?.detail === "string" ? json.detail : JSON.stringify(json);
+    throw new Error(`HireLoop API ${res.status}: ${detail}`);
+  }
+  return json;
 }
 
 function requireString(value, name) {
@@ -47,262 +39,127 @@ function requireString(value, name) {
   return value.trim();
 }
 
-async function runStart(args) {
-  return apiRequest("POST", "/runs/start", {
-    trigger: args.trigger || "on_demand",
-    config_path: args.config_path,
-  });
-}
-
-async function runStatus(args) {
-  const runId = requireString(args.run_id, "run_id");
-  return apiRequest("GET", `/runs/${encodeURIComponent(runId)}`);
-}
-
-async function runActive() {
-  return apiRequest("GET", "/runs/active");
-}
-
-async function runResults(args) {
-  const runId = requireString(args.run_id, "run_id");
-  return apiRequest("GET", `/runs/${encodeURIComponent(runId)}/results`);
-}
-
-async function jobsList(args) {
-  const query = new URLSearchParams();
-  if (args.run_id) query.set("run_id", String(args.run_id));
-  if (args.stage) query.set("stage", String(args.stage));
-  if (typeof args.limit === "number") query.set("limit", String(args.limit));
-  if (typeof args.offset === "number") query.set("offset", String(args.offset));
-  const suffix = query.toString();
-  return apiRequest("GET", `/jobs${suffix ? `?${suffix}` : ""}`);
-}
-
-async function jobsUpdate(args) {
-  const jobs = Array.isArray(args.jobs) ? args.jobs : [];
-  if (jobs.length === 0) throw new Error("jobs is required and must be a non-empty array");
-  let runId = args.run_id;
-  if (!runId) {
-    const runIds = [...new Set(jobs.map((job) => job?.run_id).filter((value) => typeof value === "string" && value.trim().length > 0))];
-    if (runIds.length === 1) {
-      runId = runIds[0];
-    }
-  }
-  return apiRequest("PATCH", "/jobs", {
-    run_id: runId,
-    jobs,
-  });
-}
-
-async function sheetSync(args) {
-  const runId = requireString(args.run_id, "run_id");
-  return apiRequest("POST", "/sheet/sync", { run_id: runId });
-}
-
-async function profileContext(args) {
-  const payload = {};
-  if (args.run_id) payload.run_id = String(args.run_id);
-  if (args.config_path) payload.config_path = String(args.config_path);
-  if (typeof args.compact === "boolean") payload.compact = args.compact;
-  return apiRequest("POST", "/profile/context", payload);
-}
-
-async function cvRenderPlan(args) {
-  const runId = requireString(args.run_id, "run_id");
-  const jobId = requireString(args.job_id, "job_id");
-  if (!args.cv_content || typeof args.cv_content !== "object" || Array.isArray(args.cv_content)) {
-    throw new Error("cv_content is required and must be an object");
-  }
-  return apiRequest("POST", "/cv/render-plan", {
-    run_id: runId,
-    job_id: jobId,
-    cv_content: args.cv_content,
-    retry_attempt: typeof args.retry_attempt === "number" ? args.retry_attempt : 0,
-  });
-}
-
-async function applyStart(args) {
-  const runId = requireString(args.run_id, "run_id");
-  return apiRequest("POST", "/apply/start", { run_id: runId });
-}
-
-async function applyStatus(args) {
-  const taskId = requireString(args.task_id, "task_id");
-  return apiRequest("GET", `/apply/${encodeURIComponent(taskId)}`);
-}
-
 const handlers = {
-  "hireloop.run_start": runStart,
-  "hireloop.run_active": runActive,
-  "hireloop.run_status": runStatus,
-  "hireloop.run_results": runResults,
-  "hireloop.jobs_list": jobsList,
-  "hireloop.jobs_update": jobsUpdate,
-  "hireloop.sheet_sync": sheetSync,
-  "hireloop.profile_context": profileContext,
-  "hireloop.cv_render_plan": cvRenderPlan,
-  "hireloop.apply_start": applyStart,
-  "hireloop.apply_status": applyStatus,
+  "hireloop.run_start": async (args) =>
+    apiRequest("POST", "/runs/start", { trigger: args.trigger || "on_demand", config_path: args.config_path }),
+
+  "hireloop.run_active": async () => apiRequest("GET", "/runs/active"),
+
+  "hireloop.run_status": async (args) => {
+    const runId = requireString(args.run_id, "run_id");
+    return apiRequest("GET", `/runs/${encodeURIComponent(runId)}`);
+  },
+
+  "hireloop.run_results": async (args) => {
+    const runId = requireString(args.run_id, "run_id");
+    return apiRequest("GET", `/runs/${encodeURIComponent(runId)}/results`);
+  },
+
+  "hireloop.run_resume": async (args) => {
+    const runId = requireString(args.run_id, "run_id");
+    return apiRequest("POST", "/runs/resume", {
+      run_id: runId,
+      force_ingest: typeof args.force_ingest === "boolean" ? args.force_ingest : true,
+    });
+  },
+
+  "hireloop.jobs_approve": async (args) => {
+    const jobs = Array.isArray(args.jobs) ? args.jobs : [];
+    if (!jobs.length) throw new Error("jobs must be a non-empty array");
+    return apiRequest("POST", "/jobs/approve", {
+      run_id: args.run_id,
+      jobs,
+      continue_after_update: typeof args.continue_after_update === "boolean" ? args.continue_after_update : true,
+    });
+  },
 };
 
-const server = new Server(
-  { name: "mcp-hireloop", version: "0.1.0" },
-  { capabilities: { tools: {} } }
-);
-
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
-    {
-      name: "hireloop.run_start",
-      description: "Start a new HireLoop run (scheduled or on-demand).",
-      inputSchema: {
-        type: "object",
-        properties: {
-          trigger: { type: "string", enum: ["schedule", "on_demand"] },
-          config_path: { type: "string" },
-        },
+const tools = [
+  {
+    name: "hireloop.run_start",
+    description: "Start a HireLoop run.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        trigger: { type: "string", enum: ["schedule", "on_demand"] },
+        config_path: { type: "string" },
       },
     },
-    {
-      name: "hireloop.run_active",
-      description: "Get active run lock status and active run details (if any).",
-      inputSchema: {
-        type: "object",
-        properties: {},
-      },
+  },
+  {
+    name: "hireloop.run_active",
+    description: "Get active run status.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "hireloop.run_status",
+    description: "Get run status.",
+    inputSchema: {
+      type: "object",
+      properties: { run_id: { type: "string" } },
+      required: ["run_id"],
     },
-    {
-      name: "hireloop.run_status",
-      description: "Get status for a HireLoop run.",
-      inputSchema: {
-        type: "object",
-        properties: { run_id: { type: "string" } },
-        required: ["run_id"],
-      },
+  },
+  {
+    name: "hireloop.run_results",
+    description: "Get run aggregate results.",
+    inputSchema: {
+      type: "object",
+      properties: { run_id: { type: "string" } },
+      required: ["run_id"],
     },
-    {
-      name: "hireloop.run_results",
-      description: "Get aggregated results for a HireLoop run.",
-      inputSchema: {
-        type: "object",
-        properties: { run_id: { type: "string" } },
-        required: ["run_id"],
+  },
+  {
+    name: "hireloop.run_resume",
+    description: "Force approval ingest and continue queue processing for a run.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        run_id: { type: "string" },
+        force_ingest: { type: "boolean" },
       },
+      required: ["run_id"],
     },
-    {
-      name: "hireloop.jobs_list",
-      description: "List jobs with optional filters.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          run_id: { type: "string" },
-          stage: { type: "string" },
-          limit: { type: "number" },
-          offset: { type: "number" },
-        },
-      },
-    },
-    {
-      name: "hireloop.jobs_update",
-      description: "Patch jobs with scores, approvals, status, and metadata.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          run_id: { type: "string" },
-          jobs: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                id: { type: "string" },
-                score: { type: "number" },
-                recommendation: { type: "string" },
-                stage: { type: "string" },
-                shortlist_decision: { type: "string" },
-                cv_status: { type: "string" },
-                cv_doc_url: { type: "string" },
-                cv_approval: { type: "string" },
-                apply_decision: { type: "string" },
-                apply_status: { type: "string" },
-                last_error: { type: "string" },
-                easy_apply: { type: "boolean" },
-                challenged: { type: "boolean" },
-                metadata: { type: "object" },
-              },
-              required: ["id"],
+  },
+  {
+    name: "hireloop.jobs_approve",
+    description: "Patch approvals for jobs and optionally continue processing.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        run_id: { type: "string" },
+        continue_after_update: { type: "boolean" },
+        jobs: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              shortlist_decision: { type: "string", enum: ["approved", "rejected", "pending"] },
+              cv_approval: { type: "string", enum: ["approved", "rejected", "pending"] },
+              apply_decision: { type: "string", enum: ["approved", "rejected", "pending"] },
+              last_error: { type: "string" },
             },
+            required: ["id"],
           },
         },
-        required: ["jobs"],
       },
+      required: ["jobs"],
     },
-    {
-      name: "hireloop.sheet_sync",
-      description: "Build canonical sheet rows for a run.",
-      inputSchema: {
-        type: "object",
-        properties: { run_id: { type: "string" } },
-        required: ["run_id"],
-      },
-    },
-    {
-      name: "hireloop.profile_context",
-      description:
-        "Load normalized profile context (Master CV + optional CCC enrichments) for scoring/CV generation.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          run_id: { type: "string" },
-          config_path: { type: "string" },
-          compact: { type: "boolean" },
-        },
-      },
-    },
-    {
-      name: "hireloop.cv_render_plan",
-      description: "Validate structured CV content and build deterministic render plan for one job.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          run_id: { type: "string" },
-          job_id: { type: "string" },
-          cv_content: { type: "object" },
-          retry_attempt: { type: "number" },
-        },
-        required: ["run_id", "job_id", "cv_content"],
-      },
-    },
-    {
-      name: "hireloop.apply_start",
-      description: "Start apply execution for approved jobs in a run.",
-      inputSchema: {
-        type: "object",
-        properties: { run_id: { type: "string" } },
-        required: ["run_id"],
-      },
-    },
-    {
-      name: "hireloop.apply_status",
-      description: "Check apply task status.",
-      inputSchema: {
-        type: "object",
-        properties: { task_id: { type: "string" } },
-        required: ["task_id"],
-      },
-    },
-  ],
-}));
+  },
+];
+
+const server = new Server({ name: "mcp-hireloop", version: "0.2.0" }, { capabilities: { tools: {} } });
+
+server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
   const input = args && typeof args === "object" ? args : {};
   const handler = handlers[name];
-  if (!handler) {
-    return buildResponse({ error: `Unknown tool: ${name}` }, true);
-  }
+  if (!handler) return buildResponse({ error: `Unknown tool: ${name}` }, true);
   try {
-    const result = await handler(input);
-    return buildResponse(result);
+    return buildResponse(await handler(input));
   } catch (err) {
     return buildResponse({ error: String(err?.message || err) }, true);
   }
