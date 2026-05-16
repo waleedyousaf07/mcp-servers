@@ -118,9 +118,14 @@ const handlers = {
   },
 
   "hireloop.job_retry": async (args) => {
-    const jobId = requireString(args.job_id, "job_id");
+    const jobId = typeof args.job_id === "string" ? args.job_id.trim() : "";
+    const fingerprint = typeof args.fingerprint === "string" ? args.fingerprint.trim() : "";
+    if (!jobId && !fingerprint) {
+      throw new Error("job_id or fingerprint is required");
+    }
     return apiRequest("POST", "/jobs/retry", {
-      job_id: jobId,
+      job_id: jobId || undefined,
+      fingerprint: fingerprint || undefined,
       run_id: typeof args.run_id === "string" ? args.run_id : undefined,
       stage: typeof args.stage === "string" ? args.stage : "auto",
       process_now: typeof args.process_now === "boolean" ? args.process_now : true,
@@ -316,16 +321,16 @@ const tools = [
   },
   {
     name: "hireloop.job_retry",
-    description: "Retry one job at score/cv/apply stage with safe re-enqueue semantics.",
+    description: "Retry one job by job_id or fingerprint at score/cv/apply stage with safe re-enqueue semantics.",
     inputSchema: {
       type: "object",
       properties: {
         job_id: { type: "string" },
+        fingerprint: { type: "string" },
         run_id: { type: "string" },
         stage: { type: "string", enum: ["auto", "score", "cv", "apply"] },
         process_now: { type: "boolean" },
       },
-      required: ["job_id"],
     },
   },
   {

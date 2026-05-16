@@ -37,3 +37,9 @@ HIRELOOP_BASE_URL=http://127.0.0.1:8787 npx @waleedyousaf07/mcp-hireloop@latest
 ```
 
 See `setup.md` for local development notes.
+
+## Retry Notes
+
+- `hireloop.job_retry` accepts either:
+  - `job_id` (existing behavior), or
+  - `fingerprint` (+ optional `run_id`) to explicitly re-introduce an older job into a run.
