@@ -63,6 +63,22 @@ const handlers = {
     });
   },
 
+  "hireloop.run_cancel": async (args) => {
+    const runId = requireString(args.run_id, "run_id");
+    return apiRequest("POST", "/runs/cancel", {
+      run_id: runId,
+      reason: typeof args.reason === "string" ? args.reason : undefined,
+    });
+  },
+
+  "hireloop.run_delete": async (args) => {
+    const runId = requireString(args.run_id, "run_id");
+    return apiRequest("POST", "/runs/delete", {
+      run_id: runId,
+      force: typeof args.force === "boolean" ? args.force : false,
+    });
+  },
+
   "hireloop.jobs_approve": async (args) => {
     const jobs = Array.isArray(args.jobs) ? args.jobs : [];
     if (!jobs.length) throw new Error("jobs must be a non-empty array");
@@ -70,6 +86,24 @@ const handlers = {
       run_id: args.run_id,
       jobs,
       continue_after_update: typeof args.continue_after_update === "boolean" ? args.continue_after_update : true,
+    });
+  },
+
+  "hireloop.job_delete": async (args) => {
+    const jobId = requireString(args.job_id, "job_id");
+    return apiRequest("POST", "/jobs/delete", {
+      job_id: jobId,
+      run_id: typeof args.run_id === "string" ? args.run_id : undefined,
+    });
+  },
+
+  "hireloop.job_retry": async (args) => {
+    const jobId = requireString(args.job_id, "job_id");
+    return apiRequest("POST", "/jobs/retry", {
+      job_id: jobId,
+      run_id: typeof args.run_id === "string" ? args.run_id : undefined,
+      stage: typeof args.stage === "string" ? args.stage : "auto",
+      process_now: typeof args.process_now === "boolean" ? args.process_now : true,
     });
   },
 };
@@ -122,6 +156,30 @@ const tools = [
     },
   },
   {
+    name: "hireloop.run_cancel",
+    description: "Cancel an active run and stop pending/running work items.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        run_id: { type: "string" },
+        reason: { type: "string" },
+      },
+      required: ["run_id"],
+    },
+  },
+  {
+    name: "hireloop.run_delete",
+    description: "Delete a run and all linked jobs/work items/events.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        run_id: { type: "string" },
+        force: { type: "boolean" },
+      },
+      required: ["run_id"],
+    },
+  },
+  {
     name: "hireloop.jobs_approve",
     description: "Patch approvals for jobs and optionally continue processing.",
     inputSchema: {
@@ -145,6 +203,32 @@ const tools = [
         },
       },
       required: ["jobs"],
+    },
+  },
+  {
+    name: "hireloop.job_delete",
+    description: "Delete one job and its linked work items.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        job_id: { type: "string" },
+        run_id: { type: "string" },
+      },
+      required: ["job_id"],
+    },
+  },
+  {
+    name: "hireloop.job_retry",
+    description: "Retry one job at score/cv/apply stage with safe re-enqueue semantics.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        job_id: { type: "string" },
+        run_id: { type: "string" },
+        stage: { type: "string", enum: ["auto", "score", "cv", "apply"] },
+        process_now: { type: "boolean" },
+      },
+      required: ["job_id"],
     },
   },
 ];

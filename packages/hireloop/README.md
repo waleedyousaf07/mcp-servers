@@ -9,7 +9,11 @@ Thin MCP wrapper for a running HireLoop backend service.
 - `hireloop.run_status`
 - `hireloop.run_results`
 - `hireloop.run_resume`
+- `hireloop.run_cancel`
+- `hireloop.run_delete`
 - `hireloop.jobs_approve`
+- `hireloop.job_delete`
+- `hireloop.job_retry`
 
 ## Quick start
 
