@@ -15,7 +15,7 @@ Thin MCP wrapper for a running HireLoop backend service.
 - `hireloop.jobs_approve`
 - `hireloop.job_delete`
 - `hireloop.job_retry`
-- `hireloop.start_new_run` (alias: start + immediate advance)
+- `hireloop.start_new_run` (alias: start + background progression trigger)
 - `hireloop.status_run` (alias)
 - `hireloop.continue_run` (alias)
 - `hireloop.cancel_run` (alias)
