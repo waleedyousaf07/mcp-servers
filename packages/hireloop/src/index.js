@@ -39,6 +39,17 @@ function requireString(value, name) {
   return value.trim();
 }
 
+async function resolveRunIdOrActive(inputRunId) {
+  if (typeof inputRunId === "string" && inputRunId.trim()) {
+    return inputRunId.trim();
+  }
+  const active = await apiRequest("GET", "/runs/active");
+  if (!active?.has_active || !active?.run?.run_id) {
+    throw new Error("No active run found. Provide run_id or start a run first.");
+  }
+  return String(active.run.run_id);
+}
+
 const handlers = {
   "hireloop.run_start": async (args) =>
     apiRequest("POST", "/runs/start", { trigger: args.trigger || "on_demand", config_path: args.config_path }),
@@ -62,6 +73,15 @@ const handlers = {
       force_ingest: typeof args.force_ingest === "boolean" ? args.force_ingest : true,
     });
   },
+
+  "hireloop.run_next": async (args) =>
+    apiRequest("POST", "/runs/next", {
+      run_id: typeof args.run_id === "string" ? args.run_id : undefined,
+      trigger: typeof args.trigger === "string" ? args.trigger : "on_demand",
+      config_path: typeof args.config_path === "string" ? args.config_path : undefined,
+      start_if_missing: typeof args.start_if_missing === "boolean" ? args.start_if_missing : true,
+      force_ingest: typeof args.force_ingest === "boolean" ? args.force_ingest : true,
+    }),
 
   "hireloop.run_cancel": async (args) => {
     const runId = requireString(args.run_id, "run_id");
@@ -104,6 +124,69 @@ const handlers = {
       run_id: typeof args.run_id === "string" ? args.run_id : undefined,
       stage: typeof args.stage === "string" ? args.stage : "auto",
       process_now: typeof args.process_now === "boolean" ? args.process_now : true,
+    });
+  },
+
+  "hireloop.start_new_run": async (args) => {
+    const trigger = typeof args.trigger === "string" ? args.trigger : "on_demand";
+    const started = await apiRequest("POST", "/runs/start", {
+      trigger,
+      config_path: typeof args.config_path === "string" ? args.config_path : undefined,
+    });
+
+    // Fire-and-forget progression so command returns quickly and avoids MCP timeout.
+    void apiRequest("POST", "/runs/next", {
+      run_id: started.run_id,
+      trigger,
+      start_if_missing: false,
+      force_ingest: true,
+    }).catch(() => {});
+
+    return {
+      run_id: started.run_id,
+      status: started.status,
+      message: "run_started_background_progression_triggered",
+    };
+  },
+
+  "hireloop.status_run": async (args) => {
+    const runId = await resolveRunIdOrActive(args.run_id);
+    return apiRequest("GET", `/runs/${encodeURIComponent(runId)}`);
+  },
+
+  "hireloop.continue_run": async (args) => {
+    const runId = await resolveRunIdOrActive(args.run_id);
+    const trigger = typeof args.trigger === "string" ? args.trigger : "on_demand";
+    const forceIngest = typeof args.force_ingest === "boolean" ? args.force_ingest : true;
+
+    // Fire-and-forget progression so command returns quickly and avoids MCP timeout.
+    void apiRequest("POST", "/runs/next", {
+      run_id: runId,
+      trigger,
+      start_if_missing: false,
+      force_ingest: forceIngest,
+    }).catch(() => {});
+
+    return {
+      run_id: runId,
+      status: "processing",
+      message: "run_continue_background_progression_triggered",
+    };
+  },
+
+  "hireloop.cancel_run": async (args) => {
+    const runId = await resolveRunIdOrActive(args.run_id);
+    return apiRequest("POST", "/runs/cancel", {
+      run_id: runId,
+      reason: typeof args.reason === "string" ? args.reason : undefined,
+    });
+  },
+
+  "hireloop.delete_run": async (args) => {
+    const runId = await resolveRunIdOrActive(args.run_id);
+    return apiRequest("POST", "/runs/delete", {
+      run_id: runId,
+      force: typeof args.force === "boolean" ? args.force : false,
     });
   },
 };
@@ -153,6 +236,20 @@ const tools = [
         force_ingest: { type: "boolean" },
       },
       required: ["run_id"],
+    },
+  },
+  {
+    name: "hireloop.run_next",
+    description: "Start-or-resume a run, process queue, and return next required approval gate.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        run_id: { type: "string" },
+        trigger: { type: "string", enum: ["schedule", "on_demand"] },
+        config_path: { type: "string" },
+        start_if_missing: { type: "boolean" },
+        force_ingest: { type: "boolean" },
+      },
     },
   },
   {
@@ -229,6 +326,62 @@ const tools = [
         process_now: { type: "boolean" },
       },
       required: ["job_id"],
+    },
+  },
+  {
+    name: "hireloop.start_new_run",
+    description: "Alias command: start a new run and trigger background progression.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        trigger: { type: "string", enum: ["schedule", "on_demand"] },
+        config_path: { type: "string" },
+      },
+    },
+  },
+  {
+    name: "hireloop.status_run",
+    description: "Alias command: get run status (defaults to active run if run_id omitted).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        run_id: { type: "string" },
+      },
+    },
+  },
+  {
+    name: "hireloop.continue_run",
+    description: "Alias command: ingest approvals and trigger background progression (no auto-start).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        run_id: { type: "string" },
+        trigger: { type: "string", enum: ["schedule", "on_demand"] },
+        start_if_missing: { type: "boolean" },
+        force_ingest: { type: "boolean" },
+      },
+    },
+  },
+  {
+    name: "hireloop.cancel_run",
+    description: "Alias command: cancel run (uses active run if run_id omitted).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        run_id: { type: "string" },
+        reason: { type: "string" },
+      },
+    },
+  },
+  {
+    name: "hireloop.delete_run",
+    description: "Alias command: delete run (uses active run if run_id omitted).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        run_id: { type: "string" },
+        force: { type: "boolean" },
+      },
     },
   },
 ];

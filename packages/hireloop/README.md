@@ -9,11 +9,26 @@ Thin MCP wrapper for a running HireLoop backend service.
 - `hireloop.run_status`
 - `hireloop.run_results`
 - `hireloop.run_resume`
+- `hireloop.run_next`
 - `hireloop.run_cancel`
 - `hireloop.run_delete`
 - `hireloop.jobs_approve`
 - `hireloop.job_delete`
 - `hireloop.job_retry`
+- `hireloop.start_new_run` (alias: start + immediate advance)
+- `hireloop.status_run` (alias)
+- `hireloop.continue_run` (alias)
+- `hireloop.cancel_run` (alias)
+- `hireloop.delete_run` (alias)
+
+## Slack Commands (via Geni hireloop profile)
+
+- `start-new-run`
+- `status-run`
+- `status-run <run_id>`
+- `continue-run`
+- `cancel-run <run_id>`
+- `delete-run <run_id>`
 
 ## Quick start
 
